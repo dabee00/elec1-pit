@@ -2,85 +2,167 @@ import streamlit as st
 import joblib
 import pandas as pd
 
-# --- 1. Load the Trained Model ---
-# The model was saved as 'gradient_boosting_model.joblib'
-# Ensure this file is accessible by your Streamlit app (e.g., in the same directory)
+# Load the trained Linear Regression model
 try:
-    model = joblib.load('gradient_boosting_model.joblib')
+    linear_model = joblib.load('linear_regression_model.joblib')
 except FileNotFoundError:
-    st.error("Error: 'gradient_boosting_model.joblib' not found. Please ensure the model file is in the correct directory.")
+    st.error("Error: 'linear_regression_model.joblib' not found. Please ensure the model file is in the same directory as app.py.")
     st.stop()
 
-# --- 2. Define Features ---
-# These are the 15 features used to train the model
-feature_columns = [
-    'Region', 
-    'Province', 
-    'Family Size', 
-    'Salaries/Wages from Regular Employment',
-    'Salaries/Wages from Seasonal Employment',
-    'Net Share of Crops, Fruits, etc. (Tot. Net Value of Share)',
-    'Cash Receipts, Support, etc. from Abroad',
-    'Cash Receipts, Support, etc. from Domestic Source',
-    'Rentals Received from Non-Agri Lands, etc.',
-    'Pension and Retirement Benefits',
-    'Dividends from Investment',
-    'Other Sources of Income NEC',
-    'Family Sustenance Activities',
-    'Transportation, Storage Services',
-    'Hhld, Income from Entrepreneurial Activities, Total'
-]
+# Define a function to make predictions
+def predict_income(features_dict):
+    # Define the exact feature names and their order as used during training
+    feature_names = [
+        'Communication Expenditure',
+        'Housing and water Expenditure',
+        'Miscellaneous Goods and Services Expenditure',
+        'Total Food Expenditure',
+        'Transportation Expenditure',
+        'Clothing, Footwear and Other Wear Expenditure',
+        'Total Income from Entrepreneurial Acitivites',
+        'Imputed House Rental Value',
+        'Number of Airconditioner'
+    ]
+    # Convert the dictionary of features to a list in the correct order
+    input_values = [features_dict[name] for name in feature_names]
+    # Convert list to a DataFrame for prediction
+    input_df = pd.DataFrame([input_values], columns=feature_names)
+    prediction = linear_model.predict(input_df)[0]
+    return prediction
 
-# --- 3. Streamlit App Interface ---
-st.set_page_config(page_title="Income Predictor", layout="wide")
-st.title("Household Income Prediction")
-st.write("Enter the details below to predict the 'Income from Salaries and Wages'.")
+# --- Streamlit App Layout ---
+st.set_page_config(page_title="Household Income Predictor", layout="wide", page_icon="🏡")
 
-# Create input fields for each feature
-input_data = {}
+# Custom CSS for better styling
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f5f5f5;
+    }
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 8px;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;
+    }
+    .stNumberInput input {
+        border-radius: 5px;
+    }
+    .sidebar .sidebar-content {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .stSuccess {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #c3e6cb;
+    }
+    .stInfo {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #bee5eb;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-# Organize inputs into columns for better layout
-col1, col2, col3 = st.columns(3)
+# Sidebar for inputs
+st.sidebar.title("🏡 Input Parameters")
+st.sidebar.markdown("Adjust the values below to input your household data for prediction.")
 
+# Dictionary to store feature inputs
+input_features = {}
+
+st.sidebar.subheader("💰 Expenditure Details")
+col1, col2 = st.sidebar.columns(2)
 with col1:
-    st.header("General Information")
-    input_data['Region'] = st.number_input('Region', min_value=1, max_value=17, value=1, step=1)
-    input_data['Province'] = st.number_input('Province', min_value=1, max_value=81, value=28, step=1)
-    input_data['Family Size'] = st.number_input('Family Size (Total Individuals)', min_value=1.0, value=3.0, step=0.5)
-
+    input_features['Communication Expenditure'] = st.number_input(
+        'Communication Expenditure (e.g., internet, phone bills) in PHP',
+        min_value=0.0, value=5000.0, step=100.0, format="%.2f",
+        help="Enter the total amount spent on communication services per year."
+    )
+    input_features['Housing and water Expenditure'] = st.number_input(
+        'Housing and Water Expenditure (rent, utilities) in PHP',
+        min_value=0.0, value=30000.0, step=500.0, format="%.2f",
+        help="Enter the total amount spent on housing and water utilities per year."
+    )
+    input_features['Miscellaneous Goods and Services Expenditure'] = st.number_input(
+        'Miscellaneous Goods and Services Expenditure in PHP',
+        min_value=0.0, value=10000.0, step=100.0, format="%.2f",
+        help="Enter the total amount spent on various other goods and services per year."
+    )
 with col2:
-    st.header("Salaries & Wages")
-    input_data['Salaries/Wages from Regular Employment'] = st.number_input('Salaries/Wages from Regular Employment', min_value=0, value=50000, step=1000)
-    input_data['Salaries/Wages from Seasonal Employment'] = st.number_input('Salaries/Wages from Seasonal Employment', min_value=0, value=5000, step=1000)
-    input_data['Net Share of Crops, Fruits, etc. (Tot. Net Value of Share)'] = st.number_input('Net Share of Crops, Fruits, etc.', min_value=0, value=0, step=1000)
+    input_features['Total Food Expenditure'] = st.number_input(
+        'Total Food Expenditure (groceries, dining out) in PHP',
+        min_value=0.0, value=50000.0, step=500.0, format="%.2f",
+        help="Enter the total amount spent on food items per year."
+    )
+    input_features['Transportation Expenditure'] = st.number_input(
+        'Transportation Expenditure (fuel, fares, maintenance) in PHP',
+        min_value=0.0, value=15000.0, step=100.0, format="%.2f",
+        help="Enter the total amount spent on transportation per year."
+    )
+    input_features['Clothing, Footwear and Other Wear Expenditure'] = st.number_input(
+        'Clothing, Footwear, and Other Wear Expenditure in PHP',
+        min_value=0.0, value=7500.0, step=50.0, format="%.2f",
+        help="Enter the total amount spent on clothing and footwear per year."
+    )
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("💼 Income and Housing")
+col3, col4 = st.sidebar.columns(2)
 with col3:
-    st.header("Other Income Sources")
-    input_data['Cash Receipts, Support, etc. from Abroad'] = st.number_input('Cash Receipts, Support, etc. from Abroad', min_value=0, value=0, step=1000)
-    input_data['Cash Receipts, Support, etc. from Domestic Source'] = st.number_input('Cash Receipts, Support, etc. from Domestic Source', min_value=0, value=0, step=1000)
-    input_data['Rentals Received from Non-Agri Lands, etc.'] = st.number_input('Rentals Received from Non-Agri Lands, etc.', min_value=0, value=0, step=100)
-
-col4, col5, col6 = st.columns(3)
-
+    input_features['Total Income from Entrepreneurial Acitivites'] = st.number_input(
+        'Total Income from Entrepreneurial Activities (annual) in PHP',
+        min_value=0.0, value=20000.0, step=500.0, format="%.2f",
+        help="Enter the total annual income derived from entrepreneurial activities."
+    )
 with col4:
-    input_data['Pension and Retirement Benefits'] = st.number_input('Pension and Retirement Benefits', min_value=0, value=0, step=1000)
-    input_data['Dividends from Investment'] = st.number_input('Dividends from Investment', min_value=0, value=0, step=100)
-    input_data['Other Sources of Income NEC'] = st.number_input('Other Sources of Income NEC', min_value=0, value=0, step=100)
+    input_features['Imputed House Rental Value'] = st.number_input(
+        'Imputed House Rental Value (annual) in PHP',
+        min_value=0.0, value=10000.0, step=100.0, format="%.2f",
+        help="If the household owns the house, enter its estimated annual rental value. Enter 0 if renting."
+    )
 
-with col5:
-    input_data['Family Sustenance Activities'] = st.number_input('Family Sustenance Activities', min_value=0, value=0, step=1000)
-    input_data['Transportation, Storage Services'] = st.number_input('Transportation, Storage Services', min_value=0.0, value=1500.0, step=10.0)
-    input_data['Hhld, Income from Entrepreneurial Activities, Total'] = st.number_input('Hhld, Income from Entrepreneurial Activities, Total', min_value=0.0, value=2000.0, step=10.0)
+st.sidebar.markdown("---")
+st.sidebar.subheader("🏠 Household Assets")
+input_features['Number of Airconditioner'] = st.sidebar.number_input(
+    'Number of Airconditioners (count)',
+    min_value=0, max_value=10, value=0, step=1,
+    help="Enter the total number of air conditioners in the household."
+)
 
-# --- 4. Prediction Button ---
-if st.button('Predict Income'):
-    # Create a DataFrame from the input data
-    input_df = pd.DataFrame([input_data])
+# Main area
+st.title('🏡 Total Household Income Predictor')
+st.markdown("""
+    Welcome to the **Household Income Predictor**! This application uses a Linear Regression model to estimate a household's total income based on various expenditure and asset indicators.
     
-    # Ensure the order of columns matches the training data
-    input_df = input_df[feature_columns]
-    
-    # Make prediction
-    prediction = model.predict(input_df)[0]
-    
-    st.success(f"Predicted Income from Salaries and Wages: ₱{prediction:,.2f}")
+    Use the sidebar to input your data, then click the button below to get a prediction.
+""")
+
+# Prediction button
+if st.button('💰 Predict Total Household Income'):
+    try:
+        predicted_income = predict_income(input_features)
+        st.success(f'**Predicted Total Household Income:** PHP {predicted_income:,.2f}')
+        st.balloons()
+    except Exception as e:
+        st.error(f"An error occurred during prediction: {e}")
+
+st.markdown("---")
+st.info("This prediction is based on a Linear Regression model trained on specific socio-economic data. Results are indicative and should be used for reference only.")
